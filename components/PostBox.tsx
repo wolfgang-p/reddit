@@ -7,6 +7,7 @@ import { fromPromise, useMutation } from '@apollo/client'
 import { ADD_POST, ADD_SUBREDDIT } from '../graphql/mutations'
 import client from '../apollo-client'
 import { GET_SUBREDDIT_BY_TOPIC } from '../graphql/queries'
+import toast from 'react-hot-toast'
 
 type FormData = {
   postTitle: string
@@ -29,8 +30,7 @@ function PostBox() {
   } = useForm<FormData>()
 
   const onSubmit = handleSubmit(async (formData) => {
-    console.log(formData)
-
+    const notification = toast.loading('Publishing new post...')
     try {
       const {
         data: { getSubredditListByTopic },
@@ -45,7 +45,6 @@ function PostBox() {
 
       if (!subredditExists) {
         //create one
-        console.log("Subreddit doesn't exist, creating one")
         const {
           data: { insertSubreddit: newSubreddit },
         } = await addSubreddit({
@@ -53,7 +52,6 @@ function PostBox() {
             topic: formData.subreddit,
           },
         })
-        console.log('Creating post...', formData)
         const image = formData.postImage || ''
 
         const {
@@ -69,9 +67,31 @@ function PostBox() {
         })
       } else {
         //use existing one
-        console.log('Subreddit exists, using it')
+        const image = formData.postImage || ''
+        const {
+          data: { insertPost: newPost },
+        } = await addPost({
+          variables: {
+            body: formData.postBody,
+            image: image,
+            subreddit_id: getSubredditListByTopic[0].id,
+            title: formData.postTitle,
+            username: session?.user?.name,
+          },
+        })
       }
-    } catch (error) {}
+      setValue('postBody', '')
+      setValue('postTitle', '')
+      setValue('postImage', '')
+      setValue('subreddit', '')
+      toast.success('Post successfully published!', {
+        id: notification,
+      })
+    } catch (error) {
+      toast.error('Whoops. Something went wrong!', {
+        id: notification,
+      })
+    }
   })
 
   return (
